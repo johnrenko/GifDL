@@ -1,0 +1,119 @@
+name: MemeDrop
+options:
+  deploymentTarget:
+    iOS: 18.0
+  developmentLanguage: en
+  createIntermediateGroups: true
+settings:
+  base:
+    PRODUCT_NAME: MemeDrop
+    SWIFT_VERSION: 5.10
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 1.0
+    GENERATE_INFOPLIST_FILE: YES
+    TARGETED_DEVICE_FAMILY: 1
+configs:
+  Debug: debug
+  Release: release
+targets:
+  MemeDrop:
+    type: application
+    platform: iOS
+    sources:
+      - path: App/Sources
+      - path: Shared/Sources
+    resources:
+      - path: App/Resources
+    info:
+      path: App/Info.plist
+      properties:
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    entitlements:
+      path: App/MemeDrop.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.dev.jd.memedrop
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jd.MemeDrop
+        CODE_SIGN_ENTITLEMENTS: App/MemeDrop.entitlements
+        INFOPLIST_FILE: App/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_CFBundleDisplayName: MemeDrop
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+    dependencies:
+      - target: MemeDropShareExtension
+  MemeDropShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension/Sources
+      - path: Shared/Sources
+    resources:
+      - path: ShareExtension/Resources
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Save to MemeDrop
+        NSExtension:
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsAttachmentsWithMaxCount: 4
+              NSExtensionActivationSupportsMovieWithMaxCount: 4
+              NSExtensionActivationSupportsImageWithMaxCount: 4
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    entitlements:
+      path: ShareExtension/MemeDropShareExtension.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.dev.jd.memedrop
+    settings:
+      base:
+        PRODUCT_NAME: MemeDropShareExtension
+        PRODUCT_MODULE_NAME: MemeDropShareExtension
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jd.MemeDrop.ShareExtension
+        CODE_SIGN_ENTITLEMENTS: ShareExtension/MemeDropShareExtension.entitlements
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        IPHONEOS_DEPLOYMENT_TARGET: 18.0
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - sdk: Social.framework
+      - sdk: UniformTypeIdentifiers.framework
+  MemeDropTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/MemeDropTests
+      - path: Shared/Sources
+    settings:
+      base:
+        PRODUCT_NAME: MemeDropTests
+        PRODUCT_MODULE_NAME: MemeDropTests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jd.MemeDropTests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: MemeDrop
+schemes:
+  MemeDrop:
+    build:
+      targets:
+        MemeDrop: all
+        MemeDropShareExtension: all
+        MemeDropTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - MemeDropTests

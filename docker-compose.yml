@@ -1,0 +1,67 @@
+services:
+  memedrop-api:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: memedrop-api
+    restart: unless-stopped
+    depends_on:
+      - cobalt
+    environment:
+      MEMEDROP_FETCH_HOST: 0.0.0.0
+      MEMEDROP_FETCH_PORT: 8080
+      MEMEDROP_COBALT_API_URL: ${MEMEDROP_COBALT_API_URL:-http://cobalt:9000/}
+      MEMEDROP_COBALT_PUBLIC_URL: ${MEMEDROP_COBALT_PUBLIC_URL:-}
+      MEMEDROP_COBALT_TIMEOUT: ${MEMEDROP_COBALT_TIMEOUT:-30}
+      MEMEDROP_COBALT_API_KEY: ${MEMEDROP_COBALT_API_KEY:-}
+      MEMEDROP_COBALT_AUTHORIZATION: ${MEMEDROP_COBALT_AUTHORIZATION:-}
+      MEMEDROP_COBALT_DOWNLOAD_MODE: ${MEMEDROP_COBALT_DOWNLOAD_MODE:-auto}
+      MEMEDROP_COBALT_FILENAME_STYLE: ${MEMEDROP_COBALT_FILENAME_STYLE:-basic}
+      MEMEDROP_COBALT_ALWAYS_PROXY: ${MEMEDROP_COBALT_ALWAYS_PROXY:-false}
+      MEMEDROP_COBALT_VIDEO_QUALITY: ${MEMEDROP_COBALT_VIDEO_QUALITY:-}
+      MEMEDROP_COBALT_AUDIO_FORMAT: ${MEMEDROP_COBALT_AUDIO_FORMAT:-}
+    expose:
+      - "8080"
+
+  cobalt:
+    image: ghcr.io/imputnet/cobalt:11
+    container_name: memedrop-cobalt
+    restart: unless-stopped
+    environment:
+      API_URL: ${COBALT_API_URL:-http://cobalt:9000/}
+      API_LISTEN_ADDRESS: 0.0.0.0
+      API_PORT: 9000
+      API_AUTH_REQUIRED: ${COBALT_API_AUTH_REQUIRED:-0}
+      TURNSTILE_SITEKEY: ${COBALT_TURNSTILE_SITEKEY:-}
+      TURNSTILE_SECRET: ${COBALT_TURNSTILE_SECRET:-}
+      JWT_SECRET: ${COBALT_JWT_SECRET:-}
+      API_KEY_URL: ${COBALT_API_KEY_URL:-}
+      CORS_WILDCARD: ${COBALT_CORS_WILDCARD:-0}
+      CORS_URL: ${COBALT_CORS_URL:-}
+      COOKIE_PATH: ${COBALT_COOKIE_PATH:-}
+      RATELIMIT_WINDOW: ${COBALT_RATELIMIT_WINDOW:-60}
+      RATELIMIT_MAX: ${COBALT_RATELIMIT_MAX:-20}
+      TUNNEL_RATELIMIT_WINDOW: ${COBALT_TUNNEL_RATELIMIT_WINDOW:-60}
+      TUNNEL_RATELIMIT_MAX: ${COBALT_TUNNEL_RATELIMIT_MAX:-40}
+    expose:
+      - "9000"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: memedrop-caddy
+    restart: unless-stopped
+    depends_on:
+      - memedrop-api
+    environment:
+      MEMEDROP_DOMAIN: ${MEMEDROP_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

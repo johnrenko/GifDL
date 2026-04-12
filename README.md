@@ -44,6 +44,34 @@ MEMEDROP_COBALT_ALWAYS_PROXY=false
 
 The backend proxies cobalt tunnel downloads back through itself, so a phone talking to `MEMEDROP_FETCH_BASE_URL` does not need separate reachability to the cobalt port. The current app model is still single-item per shared URL, so when cobalt returns a `picker` response for multi-item posts the backend imports the first asset. cobalt `local-processing` responses are surfaced as failed imports until the app gains a local remux/transcode path.
 
+## Internet deployment
+
+The repository now includes a minimal production stack:
+
+- `docker-compose.yml`: runs the Python bridge, a private cobalt instance, and Caddy.
+- `Backend/Dockerfile`: container image for the Python bridge.
+- `deploy/Caddyfile`: HTTPS reverse proxy for a public domain.
+- `.env.production.example`: deployment variables to copy and edit.
+
+Typical VPS flow:
+
+```bash
+cp .env.production.example .env.production
+# edit .env.production and set MEMEDROP_DOMAIN to your real hostname
+docker compose --env-file .env.production up -d --build
+```
+
+This stack keeps cobalt private on the Docker network by default. Public traffic terminates at Caddy on ports `80` and `443`, then only the Python bridge is exposed. That is the intended topology for MemeDrop because the app already downloads tunnel media through `/proxy`.
+
+After deploy:
+
+1. Point your DNS record for `MEMEDROP_DOMAIN` at the VPS.
+2. Open inbound TCP ports `80` and `443`.
+3. Wait for Caddy to provision TLS automatically.
+4. Update `MEMEDROP_FETCH_BASE_URL` in the app to `https://your-domain.example`.
+
+If you decide to expose cobalt separately later, set `MEMEDROP_COBALT_PUBLIC_URL` and `COBALT_API_URL` to that public URL. The backend will then accept cobalt tunnel URLs on that configured public origin as well.
+
 ## Signing and App Group setup
 
 The project uses the App Group `group.dev.jd.memedrop` and default bundle IDs under `dev.jd.*`. For device installs or a fully working signed simulator build, update the signing team in `project.yml` or in Xcode after generation.

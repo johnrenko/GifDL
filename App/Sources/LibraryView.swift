@@ -31,12 +31,15 @@ struct LibraryView: View {
                 .listRowBackground(Color.clear)
             } else {
                 ForEach(viewModel.items) { item in
-                    Button {
-                        viewModel.selectedItem = item
-                    } label: {
-                        MediaRow(item: item)
+                    MediaRow(item: item, isRetrying: viewModel.isRetrying(item)) {
+                        Task {
+                            await viewModel.retry(item)
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        viewModel.selectedItem = item
+                    }
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             viewModel.delete(item)
@@ -44,7 +47,7 @@ struct LibraryView: View {
                             Label("Delete", systemImage: "trash")
                         }
 
-                        if item.status == .failed && item.sourceType == .url {
+                        if item.canRetry {
                             Button {
                                 Task {
                                     await viewModel.retry(item)
@@ -53,6 +56,7 @@ struct LibraryView: View {
                                 Label("Retry", systemImage: "arrow.clockwise")
                             }
                             .tint(.orange)
+                            .disabled(viewModel.isRetrying(item))
                         }
                     }
                 }
@@ -104,6 +108,8 @@ struct LibraryView: View {
 
 private struct MediaRow: View {
     let item: ImportedMedia
+    let isRetrying: Bool
+    let onRetry: () -> Void
 
     var body: some View {
         HStack(spacing: 14) {
@@ -128,6 +134,27 @@ private struct MediaRow: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                }
+
+                if item.canRetry {
+                    if let errorMessage = item.errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    Button(action: onRetry) {
+                        if isRetrying {
+                            Label("Retrying…", systemImage: "hourglass")
+                                .font(.caption.weight(.semibold))
+                        } else {
+                            Label("Retry Import", systemImage: "arrow.clockwise")
+                                .font(.caption.weight(.semibold))
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .disabled(isRetrying)
                 }
             }
 

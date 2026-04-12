@@ -42,6 +42,10 @@ def cobalt_api_url() -> str:
     return os.environ.get("MEMEDROP_COBALT_API_URL", "http://127.0.0.1:9000/").strip()
 
 
+def cobalt_public_url() -> str:
+    return os.environ.get("MEMEDROP_COBALT_PUBLIC_URL", cobalt_api_url()).strip()
+
+
 def cobalt_headers() -> dict[str, str]:
     headers = {
         "Accept": "application/json",
@@ -128,8 +132,13 @@ def cobalt_error_message(payload: dict) -> str:
 
 
 def cobalt_origin() -> str:
-    parsed = urlparse(cobalt_api_url())
+    parsed = urlparse(cobalt_public_url())
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def cobalt_path_prefix() -> str:
+    parsed = urlparse(cobalt_public_url())
+    return parsed.path.rstrip("/")
 
 
 def build_proxy_url(base_url: str, target_url: str) -> str:
@@ -305,6 +314,10 @@ class Handler(BaseHTTPRequestHandler):
         parsed_target = urlparse(target)
         if f"{parsed_target.scheme}://{parsed_target.netloc}" != cobalt_origin():
             self.respond({"error": "Unsupported proxy target"}, status=HTTPStatus.BAD_REQUEST)
+            return
+        prefix = cobalt_path_prefix()
+        if prefix and not parsed_target.path.startswith(f"{prefix}/") and parsed_target.path != prefix:
+            self.respond({"error": "Unsupported proxy path"}, status=HTTPStatus.BAD_REQUEST)
             return
 
         headers = {"User-Agent": "MemeDropFetch/0.2"}

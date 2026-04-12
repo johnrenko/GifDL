@@ -1,29 +1,35 @@
-import Social
 import UIKit
 import UniformTypeIdentifiers
 
-final class ShareViewController: SLComposeServiceViewController {
+final class ShareViewController: UIViewController {
     private let configuration = AppConfiguration.default
     private lazy var diagnostics = DiagnosticsLogger(configuration: configuration)
+    private var didStartImport = false
 
-    override func isContentValid() -> Bool {
-        true
+    override func loadView() {
+        let view = UIView()
+        view.backgroundColor = .clear
+        self.view = view
     }
 
-    override func didSelectPost() {
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        startImportIfNeeded()
+    }
+
+    private func startImportIfNeeded() {
+        guard !didStartImport else { return }
+        didStartImport = true
+
         Task {
             do {
                 try await handleInputItems()
                 extensionContext?.completeRequest(returningItems: [])
             } catch {
-                diagnostics.log("extension: didSelectPost failed error=\(error.localizedDescription)")
+                diagnostics.log("extension: direct import failed error=\(error.localizedDescription)")
                 extensionContext?.cancelRequest(withError: error)
             }
         }
-    }
-
-    override func configurationItems() -> [Any]! {
-        []
     }
 
     private func handleInputItems() async throws {

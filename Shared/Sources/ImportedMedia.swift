@@ -66,6 +66,10 @@ struct ImportedMedia: Codable, Identifiable, Equatable {
         return host.replacingOccurrences(of: "www.", with: "")
     }
 
+    var canRetry: Bool {
+        sourceType == .url && status == .failed
+    }
+
     var mediaKind: MediaKind {
         if mimeType.lowercased().contains("video") {
             return .video

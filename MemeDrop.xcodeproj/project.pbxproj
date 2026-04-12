@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0426739640DADAE3C0C62B2E /* PendingImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B106C7C95E0CDAD07065B990 /* PendingImport.swift */; };
+		0A16557B8C1ABF903F4B7B99 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6121779F138B05382E90B37E /* Assets.xcassets */; };
 		1B4FAD856EE647AA49B18C21 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F77A8ADEE73499C9E9FFA03 /* LibraryViewModel.swift */; };
 		25F2770652ABF19EAD274E21 /* ImportProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D3A57E5500351242B5146B /* ImportProcessor.swift */; };
 		3897005BF81481FE5E525DB1 /* MemeDropTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37CA1C2551F816070787F3A8 /* MemeDropTests.swift */; };
@@ -86,6 +87,7 @@
 		37CA1C2551F816070787F3A8 /* MemeDropTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemeDropTests.swift; sourceTree = "<group>"; };
 		3E69C385B5A00212CBD6E6B3 /* MemeDropTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MemeDropTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F77A8ADEE73499C9E9FFA03 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
+		6121779F138B05382E90B37E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		75D23D46232DED3A08ACC8C1 /* RemoteDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDownloader.swift; sourceTree = "<group>"; };
 		8303C7462CE684459F245E0B /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		A4F362B47103846DA5DB57ED /* ActivityViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewController.swift; sourceTree = "<group>"; };
@@ -127,6 +129,14 @@
 				D8DA7BE52FB31FA26E709F0C /* StorageSupport.swift */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		3281510B5904B7C903F44C1D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				6121779F138B05382E90B37E /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		4190333A830A600C8C94AB1B /* MemeDropTests */ = {
@@ -177,6 +187,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		75268C3F32A5E9ADE00E3294 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		7556250ED7D7171731091C84 = {
 			isa = PBXGroup;
 			children = (
@@ -201,6 +218,7 @@
 		A6153B5F4E9C3EB682E09E4C /* App */ = {
 			isa = PBXGroup;
 			children = (
+				3281510B5904B7C903F44C1D /* Resources */,
 				419FADF5601DE77A7BA9AF49 /* Sources */,
 			);
 			path = App;
@@ -217,6 +235,7 @@
 		EFF12074184664F6AFB2129B /* ShareExtension */ = {
 			isa = PBXGroup;
 			children = (
+				75268C3F32A5E9ADE00E3294 /* Resources */,
 				E59565244CE47D2AE9C4CBF1 /* Sources */,
 			);
 			path = ShareExtension;
@@ -230,6 +249,7 @@
 			buildConfigurationList = 2701815F49B75F652F09C359 /* Build configuration list for PBXNativeTarget "MemeDrop" */;
 			buildPhases = (
 				20DEFE2CA434B65B9A504761 /* Sources */,
+				8F6165DDDF8AC38B3DA00522 /* Resources */,
 				EC6601908C79EF7D8FB4158A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -309,6 +329,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8F6165DDDF8AC38B3DA00522 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0A16557B8C1ABF903F4B7B99 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		20DEFE2CA434B65B9A504761 /* Sources */ = {

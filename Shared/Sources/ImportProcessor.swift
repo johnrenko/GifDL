@@ -13,6 +13,8 @@ final class ImportProcessor: ImportProcessing {
     private let downloader: RemoteDownloading
     private let fileManager: FileManager
     private let diagnostics: DiagnosticsLogger
+    private let processingLock = NSLock()
+    private var processingItemIDs: Set<UUID> = []
 
     init(
         store: LibraryStore,
@@ -49,8 +51,11 @@ final class ImportProcessor: ImportProcessing {
 
     func retry(itemID: UUID) async throws {
         guard var item = store.item(id: itemID) else { return }
+        guard item.status == .failed else { return }
         item.status = .pending
         item.errorMessage = nil
+        item.fetchJobID = nil
+        item.remoteMediaURL = nil
         try store.upsert(item)
         try await continueProcessing(item)
     }
@@ -83,30 +88,41 @@ final class ImportProcessor: ImportProcessing {
     }
 
     private func continueProcessing(_ item: ImportedMedia) async throws {
-        if let remoteMediaURL = item.remoteMediaURL {
-            diagnostics.log("app: continuing remote media download for \(item.id)")
-            try await downloadRemoteMedia(item: item, remoteMediaURL: remoteMediaURL)
+        guard beginProcessing(itemID: item.id) else {
+            diagnostics.log("app: skipped duplicate processing for \(item.id)")
             return
         }
+        defer { endProcessing(itemID: item.id) }
 
-        if let fetchJobID = item.fetchJobID {
-            diagnostics.log("app: polling fetch job \(fetchJobID)")
-            try await resolveJob(item: item, fetchJobID: fetchJobID)
-            return
-        }
+        do {
+            if let remoteMediaURL = item.remoteMediaURL {
+                diagnostics.log("app: continuing remote media download for \(item.id)")
+                try await downloadRemoteMedia(item: item, remoteMediaURL: remoteMediaURL)
+                return
+            }
 
-        if item.sourceType == .url,
-           let sourceURL = URL(string: item.originalSource),
-           item.remoteMediaURL == nil,
-           item.fetchJobID == nil {
-            let response = try await fetchService.submit(url: sourceURL)
-            try await handleResolution(item: item, response: response)
-            return
-        }
+            if let fetchJobID = item.fetchJobID {
+                diagnostics.log("app: polling fetch job \(fetchJobID)")
+                try await resolveJob(item: item, fetchJobID: fetchJobID)
+                return
+            }
 
-        if item.status == .failed {
-            try store.upsert(item)
-            diagnostics.log("app: retained failed item \(item.id)")
+            if item.sourceType == .url,
+               let sourceURL = URL(string: item.originalSource),
+               item.remoteMediaURL == nil,
+               item.fetchJobID == nil {
+                let response = try await fetchService.submit(url: sourceURL)
+                try await handleResolution(item: item, response: response)
+                return
+            }
+
+            if item.status == .failed {
+                try store.upsert(item)
+                diagnostics.log("app: retained failed item \(item.id)")
+            }
+        } catch {
+            try persistRetryableFailure(for: item, message: error.localizedDescription)
+            diagnostics.log("app: processing failed for \(item.id) error=\(error.localizedDescription)")
         }
     }
 
@@ -151,6 +167,8 @@ final class ImportProcessor: ImportProcessing {
         default:
             mutableItem.status = .failed
             mutableItem.errorMessage = response.errorMessage ?? "Unsupported URL."
+            mutableItem.fetchJobID = nil
+            mutableItem.remoteMediaURL = nil
             try store.upsert(mutableItem)
             diagnostics.log("app: resolution failed for \(item.id) error=\(mutableItem.errorMessage ?? "unknown")")
         }
@@ -184,10 +202,33 @@ final class ImportProcessor: ImportProcessing {
             try store.upsert(mutableItem)
             diagnostics.log("app: downloaded remote media \(descriptor.url.lastPathComponent)")
         } catch {
-            mutableItem.status = .failed
-            mutableItem.errorMessage = error.localizedDescription
-            try store.upsert(mutableItem)
+            try persistRetryableFailure(for: mutableItem, message: error.localizedDescription)
             diagnostics.log("app: download failed for \(item.id) error=\(error.localizedDescription)")
         }
+    }
+
+    private func persistRetryableFailure(for item: ImportedMedia, message: String) throws {
+        if let currentItem = store.item(id: item.id), currentItem.status == .ready {
+            diagnostics.log("app: ignoring stale failure for \(item.id) because a newer ready state already exists")
+            return
+        }
+        var failedItem = item
+        failedItem.status = .failed
+        failedItem.errorMessage = message
+        failedItem.fetchJobID = nil
+        failedItem.remoteMediaURL = nil
+        try store.upsert(failedItem)
+    }
+
+    private func beginProcessing(itemID: UUID) -> Bool {
+        processingLock.lock()
+        defer { processingLock.unlock() }
+        return processingItemIDs.insert(itemID).inserted
+    }
+
+    private func endProcessing(itemID: UUID) {
+        processingLock.lock()
+        processingItemIDs.remove(itemID)
+        processingLock.unlock()
     }
 }

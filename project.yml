@@ -22,8 +22,8 @@ targets:
     sources:
       - path: App/Sources
       - path: Shared/Sources
-    resources:
       - path: App/Resources
+        buildPhase: resources
     info:
       path: App/Info.plist
       properties:
@@ -54,12 +54,12 @@ targets:
     sources:
       - path: ShareExtension/Sources
       - path: Shared/Sources
-    resources:
       - path: ShareExtension/Resources
+        buildPhase: resources
     info:
       path: ShareExtension/Info.plist
       properties:
-        CFBundleDisplayName: Save to MemeDrop
+        CFBundleDisplayName: MemeDrop
         NSExtension:
           NSExtensionAttributes:
             NSExtensionActivationRule:

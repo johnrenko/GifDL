@@ -8,6 +8,7 @@ final class LibraryViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var pendingImportCount = 0
     @Published var recentDiagnostics: [String] = []
+    @Published private(set) var retryingItemIDs: Set<UUID> = []
 
     private let store: LibraryStore
     private let sharedImportStore: SharedImportStore
@@ -58,6 +59,7 @@ final class LibraryViewModel: ObservableObject {
             items = store.loadAll()
             applyDiagnosticsSnapshot()
         } catch {
+            items = store.loadAll()
             errorMessage = error.localizedDescription
             diagnostics.log("app: refresh failed error=\(error.localizedDescription)")
             applyDiagnosticsSnapshot()
@@ -74,12 +76,20 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func retry(_ item: ImportedMedia) async {
+        guard !retryingItemIDs.contains(item.id) else { return }
+        retryingItemIDs.insert(item.id)
+        defer { retryingItemIDs.remove(item.id) }
+
         do {
             try await importProcessor.retry(itemID: item.id)
             items = store.loadAll()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func isRetrying(_ item: ImportedMedia) -> Bool {
+        retryingItemIDs.contains(item.id)
     }
 
     private func applyDiagnosticsSnapshot() {

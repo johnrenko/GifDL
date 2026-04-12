@@ -9,6 +9,7 @@ final class LibraryViewModel: ObservableObject {
     @Published var pendingImportCount = 0
     @Published var recentDiagnostics: [String] = []
     @Published private(set) var retryingItemIDs: Set<UUID> = []
+    private var isRefreshing = false
 
     private let store: LibraryStore
     private let sharedImportStore: SharedImportStore
@@ -51,9 +52,15 @@ final class LibraryViewModel: ObservableObject {
         return viewModel
     }
 
-    func refresh() async {
+    func refresh(suppressLogging: Bool = false) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         do {
-            diagnostics.log("app: refresh started")
+            if !suppressLogging {
+                diagnostics.log("app: refresh started")
+            }
             try await importProcessor.consumeSharedImports()
             try await importProcessor.resumeIncompleteImports()
             items = store.loadAll()
@@ -61,7 +68,9 @@ final class LibraryViewModel: ObservableObject {
         } catch {
             items = store.loadAll()
             errorMessage = error.localizedDescription
-            diagnostics.log("app: refresh failed error=\(error.localizedDescription)")
+            if !suppressLogging {
+                diagnostics.log("app: refresh failed error=\(error.localizedDescription)")
+            }
             applyDiagnosticsSnapshot()
         }
     }

@@ -93,15 +93,23 @@ struct ImportedMedia: Codable, Identifiable, Equatable {
         }
         return parts.isEmpty ? nil : parts.joined(separator: " • ")
     }
+
+    var isRecent: Bool {
+        createdAt >= Date().addingTimeInterval(-86_400)
+    }
 }
 
 extension ImportStatus {
     var color: Color {
         switch self {
-        case .pending: .blue
-        case .downloading: .orange
-        case .ready: .green
-        case .failed: .red
+        case .pending:
+            return Color(uiColor: .systemBlue).opacity(0.82)
+        case .downloading:
+            return Color(uiColor: .systemBrown).opacity(0.82)
+        case .ready:
+            return Color(uiColor: .systemTeal).opacity(0.82)
+        case .failed:
+            return Color(uiColor: .systemRed).opacity(0.78)
         }
     }
 }

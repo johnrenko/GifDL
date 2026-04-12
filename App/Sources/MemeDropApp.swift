@@ -13,6 +13,13 @@ struct MemeDropApp: App {
             .task {
                 await viewModel.refresh()
             }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    await viewModel.refresh(suppressLogging: true)
+                }
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
                 Task {

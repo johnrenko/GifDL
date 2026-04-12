@@ -5,10 +5,38 @@ final class ShareViewController: UIViewController {
     private let configuration = AppConfiguration.default
     private lazy var diagnostics = DiagnosticsLogger(configuration: configuration)
     private var didStartImport = false
+    private let statusLabel = UILabel()
+    private let activityIndicator = UIActivityIndicatorView(style: .large)
+    private let checkmarkView = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
 
     override func loadView() {
         let view = UIView()
-        view.backgroundColor = .clear
+        view.backgroundColor = .systemBackground
+
+        let stack = UIStackView(arrangedSubviews: [activityIndicator, checkmarkView, statusLabel])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 14
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        activityIndicator.startAnimating()
+        checkmarkView.tintColor = .systemGreen
+        checkmarkView.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 42, weight: .bold)
+        checkmarkView.isHidden = true
+
+        statusLabel.font = .preferredFont(forTextStyle: .headline)
+        statusLabel.textAlignment = .center
+        statusLabel.numberOfLines = 0
+        statusLabel.text = "Saving to MemeDrop..."
+
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24)
+        ])
+
         self.view = view
     }
 
@@ -24,9 +52,19 @@ final class ShareViewController: UIViewController {
         Task {
             do {
                 try await handleInputItems()
+                await MainActor.run {
+                    activityIndicator.stopAnimating()
+                    checkmarkView.isHidden = false
+                    statusLabel.text = "Saved to MemeDrop. Open the app to share it fast."
+                }
+                try? await Task.sleep(for: .milliseconds(500))
                 extensionContext?.completeRequest(returningItems: [])
             } catch {
                 diagnostics.log("extension: direct import failed error=\(error.localizedDescription)")
+                await MainActor.run {
+                    activityIndicator.stopAnimating()
+                    statusLabel.text = error.localizedDescription
+                }
                 extensionContext?.cancelRequest(withError: error)
             }
         }

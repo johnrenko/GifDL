@@ -180,29 +180,53 @@ struct MediaDetailView: View {
     }
 
     private func copyMediaToPasteboard(from url: URL) {
-        if item.mediaKind == .image,
-           item.mimeType.lowercased().contains("gif"),
-           let data = try? Data(contentsOf: url) {
-            UIPasteboard.general.setData(data, forPasteboardType: UTType.gif.identifier)
-            showShareFeedback("Copied GIF to clipboard")
+        let pasteboard = UIPasteboard.general
+        let fileData = try? Data(contentsOf: url)
+        let preferredType = preferredMediaUTType(for: url)
+
+        if let fileData, let preferredType {
+            pasteboard.setData(fileData, forPasteboardType: preferredType.identifier)
+
+            if preferredType.conforms(to: .gif) {
+                showShareFeedback("Copied GIF to clipboard")
+            } else if preferredType.conforms(to: .image) {
+                showShareFeedback("Copied image to clipboard")
+            } else if preferredType.conforms(to: .movie) || preferredType.conforms(to: .audiovisualContent) {
+                showShareFeedback("Copied video to clipboard")
+            } else {
+                showShareFeedback("Copied media to clipboard")
+            }
             return
         }
 
         if item.mediaKind == .image,
-           let data = try? Data(contentsOf: url),
-           let image = UIImage(data: data) {
-            UIPasteboard.general.image = image
+           let fileData,
+           let image = UIImage(data: fileData) {
+            pasteboard.image = image
             showShareFeedback("Copied image to clipboard")
             return
         }
 
         if let provider = NSItemProvider(contentsOf: url) {
-            UIPasteboard.general.itemProviders = [provider]
+            pasteboard.itemProviders = [provider]
             showShareFeedback("Copied media to clipboard")
             return
         }
 
         showShareFeedback("Unable to copy this media")
+    }
+
+    private func preferredMediaUTType(for url: URL) -> UTType? {
+        if item.mimeType.isEmpty == false,
+           let mimeType = UTType(mimeType: item.mimeType) {
+            return mimeType
+        }
+
+        if let typeFromExtension = UTType(filenameExtension: url.pathExtension) {
+            return typeFromExtension
+        }
+
+        return item.mediaKind == .video ? .mpeg4Movie : .image
     }
 
     private var primaryActionBackground: Color {

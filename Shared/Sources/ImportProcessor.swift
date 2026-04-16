@@ -63,7 +63,7 @@ final class ImportProcessor: ImportProcessing {
     private func process(_ pending: PendingImport) async throws {
         switch pending.kind {
         case .localFile:
-            try importLocalFile(pending)
+            try await importLocalFile(pending)
         case .resolvedRemoteMedia, .remoteFetchJob, .failedURL:
             let item = store.importedMedia(from: pending)
             try store.upsert(item)
@@ -71,12 +71,12 @@ final class ImportProcessor: ImportProcessing {
         }
     }
 
-    private func importLocalFile(_ pending: PendingImport) throws {
+    private func importLocalFile(_ pending: PendingImport) async throws {
         guard let sourcePath = pending.sharedFilePath else {
             diagnostics.log("app: missing shared file path for pending import \(pending.id)")
             return
         }
-        let descriptor = try store.moveSharedFileIntoLibrary(sourcePath: sourcePath, suggestedFilename: pending.suggestedFilename)
+        let descriptor = try await store.moveSharedFileIntoLibrary(sourcePath: sourcePath, suggestedFilename: pending.suggestedFilename)
         var item = store.importedMedia(from: pending)
         item.localFileURL = persistedFileSystemPath(for: descriptor.url)
         item.mimeType = descriptor.mimeType
@@ -190,7 +190,7 @@ final class ImportProcessor: ImportProcessing {
 
         do {
             let tempURL = try await downloader.download(from: remoteURL)
-            let descriptor = try store.writeDownloadedFile(tempURL: tempURL, suggestedFilename: item.suggestedFilename ?? remoteURL.lastPathComponent)
+            let descriptor = try await store.writeDownloadedFile(tempURL: tempURL, suggestedFilename: item.suggestedFilename ?? remoteURL.lastPathComponent)
             mutableItem.localFileURL = persistedFileSystemPath(for: descriptor.url)
             mutableItem.mimeType = descriptor.mimeType
             mutableItem.fileSize = descriptor.fileSize

@@ -198,6 +198,21 @@ final class LibraryStore {
         try save(items)
     }
 
+    func deleteAllVideos() throws {
+        let items = loadAll()
+        let remainingItems = items.filter { $0.mediaKind != .video }
+
+        for item in items where item.mediaKind == .video {
+            guard let path = item.localFileURL else { continue }
+            let normalizedPath = normalizedFileSystemPath(path)
+            if fileManager.fileExists(atPath: normalizedPath) {
+                try? fileManager.removeItem(at: URL(fileURLWithPath: normalizedPath))
+            }
+        }
+
+        try save(remainingItems)
+    }
+
     func reserveDestinationURL(suggestedFilename: String?) throws -> URL {
         let mediaDirectory = try paths.appLibraryURL().appending(path: "Media", directoryHint: .isDirectory)
         if !fileManager.fileExists(atPath: mediaDirectory.path()) {
@@ -227,7 +242,7 @@ final class LibraryStore {
         )
     }
 
-    func moveSharedFileIntoLibrary(sourcePath: String, suggestedFilename: String?) throws -> ImportedMediaFileDescriptor {
+    func moveSharedFileIntoLibrary(sourcePath: String, suggestedFilename: String?) async throws -> ImportedMediaFileDescriptor {
         let sourceURL = URL(fileURLWithPath: normalizedFileSystemPath(sourcePath))
         guard fileManager.fileExists(atPath: sourceURL.path()) else {
             throw StorageError.missingFile
@@ -237,16 +252,16 @@ final class LibraryStore {
             try fileManager.removeItem(at: destinationURL)
         }
         try fileManager.moveItem(at: sourceURL, to: destinationURL)
-        return try ImportedMediaFileDescriptor(url: destinationURL)
+        return try await ImportedMediaFileDescriptor(url: destinationURL)
     }
 
-    func writeDownloadedFile(tempURL: URL, suggestedFilename: String?) throws -> ImportedMediaFileDescriptor {
+    func writeDownloadedFile(tempURL: URL, suggestedFilename: String?) async throws -> ImportedMediaFileDescriptor {
         let destinationURL = try reserveDestinationURL(suggestedFilename: suggestedFilename ?? tempURL.lastPathComponent)
         if fileManager.fileExists(atPath: destinationURL.path()) {
             try fileManager.removeItem(at: destinationURL)
         }
         try fileManager.moveItem(at: tempURL, to: destinationURL)
-        return try ImportedMediaFileDescriptor(url: destinationURL)
+        return try await ImportedMediaFileDescriptor(url: destinationURL)
     }
 
     private func save(_ items: [ImportedMedia]) throws {
@@ -280,14 +295,15 @@ struct ImportedMediaFileDescriptor {
     let fileSize: Int64
     let duration: Double?
 
-    init(url: URL) throws {
+    init(url: URL) async throws {
         self.url = url
         let values = try url.resourceValues(forKeys: [.contentTypeKey, .fileSizeKey])
         let type = values.contentType
         self.mimeType = type?.preferredMIMEType ?? "application/octet-stream"
         self.fileSize = Int64(values.fileSize ?? 0)
         if type?.conforms(to: .movie) == true {
-            self.duration = AVURLAsset(url: url).duration.seconds
+            let duration = try await AVURLAsset(url: url).load(.duration)
+            self.duration = duration.seconds
         } else {
             self.duration = nil
         }

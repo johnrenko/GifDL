@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct MediaThumbnailView: View {
     let item: ImportedMedia
+    @State private var thumbnailImage: UIImage?
 
     var body: some View {
         ZStack {
@@ -21,16 +22,19 @@ struct MediaThumbnailView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .task(id: item.id) {
+            thumbnailImage = await loadThumbnailImage()
+        }
     }
 
-    private var thumbnailImage: UIImage? {
+    private func loadThumbnailImage() async -> UIImage? {
         guard let fileURL = item.resolvedLocalFileURL else {
             return nil
         }
 
         switch item.mediaKind {
         case .video:
-            return videoThumbnail(url: fileURL)
+            return await videoThumbnail(url: fileURL)
         case .image:
             return imageThumbnail(url: fileURL)
         }
@@ -48,13 +52,39 @@ struct MediaThumbnailView: View {
         return UIImage(cgImage: image)
     }
 
-    private func videoThumbnail(url: URL) -> UIImage? {
+    private func videoThumbnail(url: URL) async -> UIImage? {
         let asset = AVURLAsset(url: url)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
-        guard let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil) else {
+        guard let cgImage = try? await generator.generateCGImage(at: .zero) else {
             return nil
         }
         return UIImage(cgImage: cgImage)
+    }
+}
+
+private extension AVAssetImageGenerator {
+    func generateCGImage(at time: CMTime) async throws -> CGImage {
+        try await withCheckedThrowingContinuation { continuation in
+            generateCGImageAsynchronously(for: time) { image, _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                guard let image else {
+                    continuation.resume(
+                        throwing: NSError(
+                            domain: "MediaThumbnailView",
+                            code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "Unable to generate a thumbnail image."]
+                        )
+                    )
+                    return
+                }
+
+                continuation.resume(returning: image)
+            }
+        }
     }
 }

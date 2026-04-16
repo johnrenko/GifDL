@@ -269,14 +269,14 @@ private extension NSItemProvider {
         }
     }
 
-    func loadItem(forTypeIdentifier typeIdentifier: String) async throws -> NSSecureCoding {
+    func loadItem(forTypeIdentifier typeIdentifier: String) async throws -> any NSSecureCoding {
         try await withCheckedThrowingContinuation { continuation in
             self.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return
                 }
-                guard let item = item as? NSSecureCoding else {
+                guard let item else {
                     continuation.resume(throwing: NSError(domain: "ShareExtension", code: -3, userInfo: [NSLocalizedDescriptionKey: "Unsupported shared item payload."]))
                     return
                 }

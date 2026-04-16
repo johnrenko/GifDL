@@ -84,6 +84,18 @@ final class LibraryViewModel: ObservableObject {
         }
     }
 
+    func deleteAllVideos() {
+        do {
+            try store.deleteAllVideos()
+            items = store.loadAll()
+            if let selectedItem, selectedItem.mediaKind == .video {
+                self.selectedItem = nil
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func retry(_ item: ImportedMedia) async {
         guard !retryingItemIDs.contains(item.id) else { return }
         retryingItemIDs.insert(item.id)

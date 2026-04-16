@@ -154,7 +154,7 @@ struct MediaDetailView: View {
     @ViewBuilder
     private func preview(height: CGFloat) -> some View {
         if item.mediaKind == .video, let url = item.resolvedLocalFileURL {
-            VideoPlayer(player: AVPlayer(url: url))
+            VideoPreviewPlayer(url: url)
                 .frame(height: height)
                 .clipShape(RoundedRectangle(cornerRadius: DetailMetrics.previewCornerRadius, style: .continuous))
         } else {
@@ -235,6 +235,62 @@ struct MediaDetailView: View {
 
     private var primaryActionForeground: Color {
         colorScheme == .dark ? .black : Color(.systemBackground)
+    }
+}
+
+private struct VideoPreviewPlayer: View {
+    let url: URL
+
+    @StateObject private var model: VideoPreviewPlayerModel
+
+    init(url: URL) {
+        self.url = url
+        _model = StateObject(wrappedValue: VideoPreviewPlayerModel(url: url))
+    }
+
+    var body: some View {
+        StableVideoPlayer(player: model.player)
+        .onDisappear {
+            model.pause()
+        }
+    }
+}
+
+@MainActor
+private final class VideoPreviewPlayerModel: ObservableObject {
+    let player: AVPlayer
+
+    init(url: URL) {
+        let player = AVPlayer(url: url)
+        player.audiovisualBackgroundPlaybackPolicy = .pauses
+        self.player = player
+    }
+
+    func pause() {
+        player.pause()
+    }
+}
+
+private struct StableVideoPlayer: UIViewControllerRepresentable {
+    let player: AVPlayer
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.updatesNowPlayingInfoCenter = false
+        controller.canStartPictureInPictureAutomaticallyFromInline = false
+        return controller
+    }
+
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        if controller.player !== player {
+            controller.player = player
+        }
+    }
+
+    static func dismantleUIViewController(_ controller: AVPlayerViewController, coordinator: ()) {
+        controller.player?.pause()
+        controller.player = nil
     }
 }
 

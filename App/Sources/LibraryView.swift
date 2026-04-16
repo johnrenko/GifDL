@@ -11,6 +11,7 @@ struct LibraryView: View {
 
     @State private var selectedFilter: LibraryFilter = .all
     @State private var shareItem: ImportedMedia?
+    @State private var isShowingDeleteVideosConfirmation = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -98,12 +99,24 @@ struct LibraryView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task {
-                        await viewModel.refresh()
+                Menu {
+                    Button {
+                        Task {
+                            await viewModel.refresh()
+                        }
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+
+                    if videoCount > 0 {
+                        Button(role: .destructive) {
+                            isShowingDeleteVideosConfirmation = true
+                        } label: {
+                            Label("Delete All Videos", systemImage: "trash")
+                        }
                     }
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -129,10 +142,26 @@ struct LibraryView: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
+        .confirmationDialog(
+            "Delete all videos?",
+            isPresented: $isShowingDeleteVideosConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete All Videos", role: .destructive) {
+                viewModel.deleteAllVideos()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently remove \(videoCount) video\(videoCount == 1 ? "" : "s") from your library.")
+        }
     }
 
     private var filteredItems: [ImportedMedia] {
         viewModel.items.filter(selectedFilter.matches)
+    }
+
+    private var videoCount: Int {
+        viewModel.items.filter { $0.mediaKind == .video }.count
     }
 
     private var sectionedItems: [LibrarySection] {

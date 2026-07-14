@@ -155,16 +155,18 @@ jobs:
           set +e
           launch_output="$(launch_shape 'VM.Standard.A1.Flex' '{"ocpus":1,"memoryInGBs":6}' 2>&1)"
           launch_rc=$?
+          all_launch_output="$launch_output"
           if [[ $launch_rc -ne 0 ]]; then
             echo "$launch_output"
             launch_output="$(launch_shape 'VM.Standard.E2.1.Micro' '' 2>&1)"
             launch_rc=$?
+            all_launch_output+=$'\n'"$launch_output"
           fi
           set -e
 
           if [[ $launch_rc -ne 0 ]]; then
             echo "$launch_output"
-            if grep -qi 'Out of capacity' <<<"$launch_output"; then
+            if grep -Eqi 'Out of (host )?capacity|Too many requests|timed out|InternalError' <<<"$all_launch_output"; then
               echo 'No Always Free capacity is available yet. The scheduled workflow will retry.'
               exit 0
             fi

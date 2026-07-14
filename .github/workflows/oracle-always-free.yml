@@ -1,0 +1,184 @@
+name: Provision MemeDrop on Oracle Always Free
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oracle-always-free-memedrop
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING: "True"
+      SUPPRESS_LABEL_WARNING: "True"
+      OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+      OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+      OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+      OCI_REGION: eu-paris-1
+      INSTANCE_NAME: memedrop-prod
+      VCN_NAME: memedrop-vcn
+      SUBNET_NAME: public subnet-memedrop-vcn
+      NSG_NAME: memedrop-web
+
+    steps:
+      - name: Install OCI CLI
+        run: pip install --quiet oci-cli
+
+      - name: Configure OCI authentication
+        run: |
+          install -d -m 700 "$HOME/.oci"
+          printf '%s' "$OCI_PRIVATE_KEY" > "$HOME/.oci/memedrop_api_key.pem"
+          chmod 600 "$HOME/.oci/memedrop_api_key.pem"
+          cat > "$HOME/.oci/config" <<EOF
+          [DEFAULT]
+          user=$OCI_USER_OCID
+          fingerprint=$OCI_FINGERPRINT
+          tenancy=$OCI_TENANCY_OCID
+          region=$OCI_REGION
+          key_file=$HOME/.oci/memedrop_api_key.pem
+          EOF
+          chmod 600 "$HOME/.oci/config"
+
+      - name: Provision the first available Always Free shape
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          existing_id="$({ oci compute instance list \
+            --compartment-id "$OCI_TENANCY_OCID" \
+            --display-name "$INSTANCE_NAME" \
+            --output json || true; } | jq -r '.data[]? | select(."lifecycle-state" != "TERMINATED" and ."lifecycle-state" != "TERMINATING") | .id' | head -n1)"
+
+          if [[ -n "$existing_id" ]]; then
+            public_ip="$(oci compute instance list-vnics --instance-id "$existing_id" --query 'data[0]."public-ip"' --raw-output 2>/dev/null || true)"
+            echo "MemeDrop instance already exists: $existing_id"
+            echo "Public IP: $public_ip"
+            {
+              echo "## MemeDrop Oracle instance"
+              echo "Instance already exists: \`$existing_id\`"
+              echo "Public IP: **$public_ip**"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          availability_domain="$(oci iam availability-domain list \
+            --compartment-id "$OCI_TENANCY_OCID" \
+            --query 'data[0].name' --raw-output)"
+          vcn_id="$(oci network vcn list \
+            --compartment-id "$OCI_TENANCY_OCID" \
+            --display-name "$VCN_NAME" \
+            --query 'data[0].id' --raw-output)"
+          subnet_id="$(oci network subnet list \
+            --compartment-id "$OCI_TENANCY_OCID" \
+            --vcn-id "$vcn_id" \
+            --display-name "$SUBNET_NAME" \
+            --query 'data[0].id' --raw-output)"
+
+          nsg_id="$(oci network nsg list \
+            --compartment-id "$OCI_TENANCY_OCID" \
+            --vcn-id "$vcn_id" \
+            --display-name "$NSG_NAME" \
+            --query 'data[0].id' --raw-output)"
+          if [[ -z "$nsg_id" || "$nsg_id" == "null" ]]; then
+            nsg_id="$(oci network nsg create \
+              --compartment-id "$OCI_TENANCY_OCID" \
+              --vcn-id "$vcn_id" \
+              --display-name "$NSG_NAME" \
+              --query 'data.id' --raw-output)"
+            oci network nsg rules add --nsg-id "$nsg_id" --security-rules '[
+              {"description":"MemeDrop HTTP","direction":"INGRESS","isStateless":false,"protocol":"6","source":"0.0.0.0/0","sourceType":"CIDR_BLOCK","tcpOptions":{"destinationPortRange":{"min":80,"max":80}}},
+              {"description":"MemeDrop HTTPS","direction":"INGRESS","isStateless":false,"protocol":"6","source":"0.0.0.0/0","sourceType":"CIDR_BLOCK","tcpOptions":{"destinationPortRange":{"min":443,"max":443}}}
+            ]' >/dev/null
+          fi
+
+          cat > cloud-init.yaml <<'CLOUD_INIT'
+          #cloud-config
+          package_update: true
+          packages:
+            - git
+            - curl
+            - docker.io
+          runcmd:
+            - [bash, -lc, 'if ! swapon --show | grep -q /swapfile; then fallocate -l 3G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab; fi']
+            - [bash, -lc, 'apt-get install -y docker-compose-v2 || apt-get install -y docker-compose']
+            - [bash, -lc, 'systemctl enable --now docker']
+            - [bash, -lc, 'rm -rf /opt/memedrop && git clone --depth 1 https://github.com/johnrenko/GifDL.git /opt/memedrop']
+            - [bash, -lc, 'cd /opt/memedrop && cp .env.production.example .env.production && sed -i "s/^MEMEDROP_DOMAIN=.*/MEMEDROP_DOMAIN=api.johndutamby.com/" .env.production']
+            - [bash, -lc, 'cd /opt/memedrop && (docker compose --env-file .env.production up -d --build || docker-compose --env-file .env.production up -d --build)']
+          CLOUD_INIT
+
+          printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHXXy0/MgdpUorxI8f/zixdL21ntimQ40f6JnX4sYU35 memedrop-oracle' > memedrop_ssh.pub
+
+          launch_shape() {
+            local shape="$1"
+            local shape_config="$2"
+            local image_id
+            image_id="$(oci compute image list \
+              --compartment-id "$OCI_TENANCY_OCID" \
+              --operating-system 'Canonical Ubuntu' \
+              --operating-system-version '24.04' \
+              --shape "$shape" \
+              --sort-by TIMECREATED --sort-order DESC \
+              --query 'data[0].id' --raw-output)"
+
+            local args=(
+              --availability-domain "$availability_domain"
+              --compartment-id "$OCI_TENANCY_OCID"
+              --display-name "$INSTANCE_NAME"
+              --image-id "$image_id"
+              --shape "$shape"
+              --subnet-id "$subnet_id"
+              --assign-public-ip true
+              --nsg-ids "[\"$nsg_id\"]"
+              --ssh-authorized-keys-file memedrop_ssh.pub
+              --user-data-file cloud-init.yaml
+              --wait-for-state RUNNING
+              --max-wait-seconds 900
+              --query data.id
+              --raw-output
+            )
+            if [[ -n "$shape_config" ]]; then
+              args+=(--shape-config "$shape_config")
+            fi
+            oci compute instance launch "${args[@]}"
+          }
+
+          set +e
+          launch_output="$(launch_shape 'VM.Standard.A1.Flex' '{"ocpus":1,"memoryInGBs":6}' 2>&1)"
+          launch_rc=$?
+          if [[ $launch_rc -ne 0 ]]; then
+            echo "$launch_output"
+            launch_output="$(launch_shape 'VM.Standard.E2.1.Micro' '' 2>&1)"
+            launch_rc=$?
+          fi
+          set -e
+
+          if [[ $launch_rc -ne 0 ]]; then
+            echo "$launch_output"
+            if grep -qi 'Out of capacity' <<<"$launch_output"; then
+              echo 'No Always Free capacity is available yet. The scheduled workflow will retry.'
+              exit 0
+            fi
+            exit "$launch_rc"
+          fi
+
+          instance_id="$launch_output"
+          public_ip="$(oci compute instance list-vnics \
+            --instance-id "$instance_id" \
+            --query 'data[0]."public-ip"' --raw-output)"
+          echo "Provisioned $instance_id at $public_ip"
+          {
+            echo "## MemeDrop Oracle instance provisioned"
+            echo "Instance: \`$instance_id\`"
+            echo "Public IP: **$public_ip**"
+            echo "Cloud-init is installing Docker and deploying MemeDrop."
+          } >> "$GITHUB_STEP_SUMMARY"

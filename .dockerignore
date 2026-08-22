@@ -1,0 +1,10 @@
+.git
+.DS_Store
+App
+MemeDrop.xcodeproj
+ShareExtension
+Shared
+Tests
+scripts
+project.yml
+docker-compose.yml

@@ -70,6 +70,24 @@ After deploy:
 3. Wait for Caddy to provision TLS automatically.
 4. Update `MEMEDROP_FETCH_BASE_URL` in the app to `https://your-domain.example`.
 
+### Render Free
+
+Render runs MemeDrop and cobalt together in one container so cobalt stays on
+localhost and only the Python bridge is public. The included `render.yaml` uses
+the Free web-service plan, the Frankfurt region, and `/health` for health checks.
+
+1. In Render, create a Blueprint from this repository.
+2. Review the `memedrop-fetch` service and apply the Blueprint.
+3. Wait for `https://<service>.onrender.com/health` to return `{"status": "ok"}`.
+4. Copy the generated `MEMEDROP_API_KEY` from Render's Environment page.
+5. Set the app's default URL and local API key configuration to the Render values.
+
+Free services sleep after inactivity, so the first request can take around a
+minute while the container starts. The filesystem is ephemeral by design: both
+the bridge and cobalt stream media without requiring persistent storage.
+The generated bearer token protects `/resolve` and `/proxy`; `/health` remains
+public so Render can check readiness without exposing the token.
+
 If you decide to expose cobalt separately later, set `MEMEDROP_COBALT_PUBLIC_URL` and `COBALT_API_URL` to that public URL. The backend will then accept cobalt tunnel URLs on that configured public origin as well.
 
 ## Signing and App Group setup

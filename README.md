@@ -80,7 +80,9 @@ the Free web-service plan, the Frankfurt region, and `/health` for health checks
 2. Review the `memedrop-fetch` service and apply the Blueprint.
 3. Wait for `https://<service>.onrender.com/health` to return `{"status": "ok"}`.
 4. Copy the generated `MEMEDROP_API_KEY` from Render's Environment page.
-5. Set the app's default URL and local API key configuration to the Render values.
+5. In MemeDrop, open the top-right menu, choose **Fetch Service**, and paste
+   the key. It is stored in the shared App Group container for the app and share
+   extension, and is never committed to source control.
 
 Free services sleep after inactivity, so the first request can take around a
 minute while the container starts. The filesystem is ephemeral by design: both

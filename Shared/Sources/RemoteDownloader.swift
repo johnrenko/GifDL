@@ -6,7 +6,8 @@ protocol RemoteDownloading {
 
 struct RemoteDownloader: RemoteDownloading {
     func download(from url: URL) async throws -> URL {
-        let (tempURL, _) = try await URLSession.shared.download(from: url)
+        let request = FetchServiceRequestFactory.downloadRequest(url: url)
+        let (tempURL, _) = try await URLSession.shared.download(for: request)
         return tempURL
     }
 }

@@ -12,6 +12,7 @@ struct LibraryView: View {
     @State private var selectedFilter: LibraryFilter = .all
     @State private var shareItem: ImportedMedia?
     @State private var isShowingDeleteVideosConfirmation = false
+    @State private var isShowingFetchServiceSettings = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -108,6 +109,12 @@ struct LibraryView: View {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
 
+                    Button {
+                        isShowingFetchServiceSettings = true
+                    } label: {
+                        Label("Fetch Service", systemImage: "key")
+                    }
+
                     if videoCount > 0 {
                         Button(role: .destructive) {
                             isShowingDeleteVideosConfirmation = true
@@ -130,6 +137,9 @@ struct LibraryView: View {
             if let url = item.resolvedLocalFileURL {
                 ActivityViewController(activityItems: [url])
             }
+        }
+        .sheet(isPresented: $isShowingFetchServiceSettings) {
+            FetchServiceSettingsView()
         }
         .alert("Import Error", isPresented: Binding(get: {
             viewModel.errorMessage != nil
@@ -184,6 +194,67 @@ struct LibraryView: View {
         return order.compactMap { title in
             guard let items = grouped[title], !items.isEmpty else { return nil }
             return LibrarySection(title: title, items: items)
+        }
+    }
+}
+
+private struct FetchServiceSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var apiKey = ""
+    @State private var isConfigured = AppConfiguration.fetchServiceAPIKey != nil
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Render Service") {
+                    LabeledContent("URL") {
+                        Text(AppConfiguration.default.fetchServiceBaseURL.host ?? "Unavailable")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    LabeledContent("API key") {
+                        Text(isConfigured ? "Configured" : "Required")
+                            .foregroundStyle(isConfigured ? .green : .orange)
+                    }
+                }
+
+                Section {
+                    SecureField("Paste the Render API key", text: $apiKey)
+                        .textContentType(.password)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } footer: {
+                    Text("The key stays in the shared app container so the app and share extension can authenticate without adding it to source control.")
+                }
+
+                if isConfigured {
+                    Section {
+                        Button("Remove API Key", role: .destructive) {
+                            AppConfiguration.saveFetchServiceAPIKey(nil)
+                            apiKey = ""
+                            isConfigured = false
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Fetch Service")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        AppConfiguration.saveFetchServiceAPIKey(apiKey)
+                        dismiss()
+                    }
+                    .disabled(apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
         }
     }
 }

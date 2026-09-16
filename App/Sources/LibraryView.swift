@@ -11,6 +11,7 @@ struct LibraryView: View {
 
     @State private var selectedFilter: LibraryFilter = .all
     @State private var shareItem: ImportedMedia?
+    @State private var copyFeedbackMessage: String?
     @State private var isShowingDeleteVideosConfirmation = false
 
     var body: some View {
@@ -63,8 +64,8 @@ struct LibraryView: View {
                                                         await viewModel.retry(item)
                                                     }
                                                 },
-                                                onDelete: {
-                                                    viewModel.delete(item)
+                                                onCopy: {
+                                                    copy(item)
                                                 },
                                                 onShare: {
                                                     shareItem = item
@@ -87,14 +88,26 @@ struct LibraryView: View {
         .background(Color(.systemBackground).ignoresSafeArea())
         .navigationTitle("MemeDrop")
         .safeAreaInset(edge: .top) {
-            if let message = viewModel.errorMessage, message.contains("App Group container is unavailable") {
-                Text("App Group is unavailable. Check Signing & Capabilities for both the app and the share extension.")
-                    .font(.footnote.weight(.medium))
-                    .multilineTextAlignment(.leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.tertiarySystemBackground))
+            VStack(spacing: 0) {
+                if let message = copyFeedbackMessage {
+                    Label(message, systemImage: "checkmark.circle.fill")
+                        .font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.tertiarySystemBackground))
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                if let message = viewModel.errorMessage, message.contains("App Group container is unavailable") {
+                    Text("App Group is unavailable. Check Signing & Capabilities for both the app and the share extension.")
+                        .font(.footnote.weight(.medium))
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.tertiarySystemBackground))
+                }
             }
         }
         .toolbar {
@@ -184,6 +197,25 @@ struct LibraryView: View {
         return order.compactMap { title in
             guard let items = grouped[title], !items.isEmpty else { return nil }
             return LibrarySection(title: title, items: items)
+        }
+    }
+
+    private func copy(_ item: ImportedMedia) {
+        guard let url = item.resolvedLocalFileURL else { return }
+        showCopyFeedback(MediaClipboard.copy(item: item, from: url))
+    }
+
+    private func showCopyFeedback(_ message: String) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+            copyFeedbackMessage = message
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    copyFeedbackMessage = nil
+                }
+            }
         }
     }
 }
@@ -330,7 +362,7 @@ private struct MediaCard: View {
     let layout: MediaCardLayout
     let onOpen: () -> Void
     let onRetry: () -> Void
-    let onDelete: () -> Void
+    let onCopy: () -> Void
     let onShare: () -> Void
 
     var body: some View {
@@ -441,14 +473,24 @@ private struct MediaCard: View {
     private var footer: some View {
         HStack(spacing: 10) {
             if item.resolvedLocalFileURL != nil {
-                Button(action: onShare) {
-                    Label("Share", systemImage: "paperplane.fill")
+                Button(action: onCopy) {
+                    Label("Copy", systemImage: "doc.on.doc")
                         .foregroundStyle(primaryActionForeground)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: LibraryMetrics.controlMinHeight)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(primaryActionBackground)
+
+                Button(action: onShare) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .frame(width: LibraryMetrics.controlMinHeight, height: LibraryMetrics.controlMinHeight)
+                        .background(Color(.tertiarySystemBackground), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share")
             } else if item.canRetry {
                 Button(action: onRetry) {
                     if isRetrying {
@@ -463,21 +505,6 @@ private struct MediaCard: View {
                 .disabled(isRetrying)
                 .frame(minHeight: LibraryMetrics.controlMinHeight)
             }
-
-            Menu {
-                Button("Open", action: onOpen)
-                if item.canRetry {
-                    Button("Retry Import", action: onRetry)
-                }
-                Button("Delete", role: .destructive, action: onDelete)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.headline)
-                    .frame(width: LibraryMetrics.controlMinHeight, height: LibraryMetrics.controlMinHeight)
-                    .background(Color(.tertiarySystemBackground), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("More actions")
         }
     }
 

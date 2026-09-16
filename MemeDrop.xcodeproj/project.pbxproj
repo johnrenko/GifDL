@@ -17,6 +17,7 @@
 		41A7EB5E1D5295AD448E2267 /* DiagnosticsLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31CB547AAF7773CF38311DA1 /* DiagnosticsLogger.swift */; };
 		4263740E7F1C875E5B0F1FE0 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F87EC7A1B7A2C0E1BBCBD0A6 /* UniformTypeIdentifiers.framework */; };
 		4EC07AEAE8FF9EF4C11999D3 /* FetchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6722E35C1F3B463770E921E /* FetchService.swift */; };
+		557196C0A8492EA41F3A91A1 /* MediaClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA794FE8E816C9C909E04A87 /* MediaClipboard.swift */; };
 		63D07F8DB8C5CDF6CF652671 /* StorageSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8DA7BE52FB31FA26E709F0C /* StorageSupport.swift */; };
 		642ADBDC9295947260167170 /* ImportedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FD05C62EC9ADB140634B33E /* ImportedMedia.swift */; };
 		6EA3B2DEA52AED4F289343FE /* ImportProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D3A57E5500351242B5146B /* ImportProcessor.swift */; };
@@ -95,12 +96,13 @@
 		B106C7C95E0CDAD07065B990 /* PendingImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImport.swift; sourceTree = "<group>"; };
 		B3D3A57E5500351242B5146B /* ImportProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportProcessor.swift; sourceTree = "<group>"; };
 		B6722E35C1F3B463770E921E /* FetchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchService.swift; sourceTree = "<group>"; };
-		BEF53CF453259EF1DCEA7BFD /* MemeDropShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MemeDropShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BEF53CF453259EF1DCEA7BFD /* MemeDropShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MemeDropShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2BE2AE41A6BFF8F37C04D5D /* MediaThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaThumbnailView.swift; sourceTree = "<group>"; };
-		C5C790007111CB3BC2957B56 /* MemeDrop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MemeDrop.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C5C790007111CB3BC2957B56 /* MemeDrop.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MemeDrop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8DF58A38567E5538C0B750F /* Social.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Social.framework; path = System/Library/Frameworks/Social.framework; sourceTree = SDKROOT; };
 		D8DA7BE52FB31FA26E709F0C /* StorageSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageSupport.swift; sourceTree = "<group>"; };
 		F87EC7A1B7A2C0E1BBCBD0A6 /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
+		FA794FE8E816C9C909E04A87 /* MediaClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaClipboard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +156,7 @@
 				3534242934D9AF4365AF9E59 /* AnimatedMediaView.swift */,
 				11CEA298F381545076E06E24 /* LibraryView.swift */,
 				5F77A8ADEE73499C9E9FFA03 /* LibraryViewModel.swift */,
+				FA794FE8E816C9C909E04A87 /* MediaClipboard.swift */,
 				A8B1C1F6FB9AF71A56FA44F5 /* MediaDetailView.swift */,
 				C2BE2AE41A6BFF8F37C04D5D /* MediaThumbnailView.swift */,
 				26DD9926460E1656044035A3 /* MemeDropApp.swift */,
@@ -355,6 +358,7 @@
 				3937C491F0B415829F0AD58B /* ImportedMedia.swift in Sources */,
 				7D7D4E163C25406CDB45E148 /* LibraryView.swift in Sources */,
 				1B4FAD856EE647AA49B18C21 /* LibraryViewModel.swift in Sources */,
+				557196C0A8492EA41F3A91A1 /* MediaClipboard.swift in Sources */,
 				B233D829115E57D156CC6184 /* MediaDetailView.swift in Sources */,
 				F5BAE9AA6C9B856408E65BAA /* MediaThumbnailView.swift in Sources */,
 				E93C87B81E9BBC8DB59546F8 /* MemeDropApp.swift in Sources */,

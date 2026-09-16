@@ -1,7 +1,5 @@
 import AVKit
 import SwiftUI
-import UIKit
-import UniformTypeIdentifiers
 
 private enum DetailMetrics {
     static let previewCornerRadius: CGFloat = 16
@@ -64,7 +62,7 @@ struct MediaDetailView: View {
                             }
                             Button("Copy Media") {
                                 if let url = item.resolvedLocalFileURL {
-                                    copyMediaToPasteboard(from: url)
+                                    showShareFeedback(MediaClipboard.copy(item: item, from: url))
                                 }
                             }
                         }
@@ -113,9 +111,9 @@ struct MediaDetailView: View {
 
             if let url = item.resolvedLocalFileURL {
                 Button {
-                    isShowingShareSheet = true
+                    showShareFeedback(MediaClipboard.copy(item: item, from: url))
                 } label: {
-                    Label("Share Now", systemImage: "paperplane.fill")
+                    Label("Copy to Clipboard", systemImage: "doc.on.doc.fill")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(primaryActionForeground)
                         .frame(maxWidth: .infinity)
@@ -123,19 +121,19 @@ struct MediaDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(primaryActionBackground)
-                .accessibilityHint("Opens the system share sheet")
+                .accessibilityHint("Copies the actual media to the clipboard")
 
                 Button {
-                    copyMediaToPasteboard(from: url)
+                    isShowingShareSheet = true
                 } label: {
-                    Label("Copy Media", systemImage: "doc.on.doc")
+                    Label("Share", systemImage: "paperplane")
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: DetailMetrics.secondaryActionMinHeight)
                 }
                 .buttonStyle(.bordered)
                 .tint(.secondary)
-                .accessibilityHint("Copies the actual media to the clipboard")
+                .accessibilityHint("Opens the system share sheet")
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -177,56 +175,6 @@ struct MediaDetailView: View {
                 }
             }
         }
-    }
-
-    private func copyMediaToPasteboard(from url: URL) {
-        let pasteboard = UIPasteboard.general
-        let fileData = try? Data(contentsOf: url)
-        let preferredType = preferredMediaUTType(for: url)
-
-        if let fileData, let preferredType {
-            pasteboard.setData(fileData, forPasteboardType: preferredType.identifier)
-
-            if preferredType.conforms(to: .gif) {
-                showShareFeedback("Copied GIF to clipboard")
-            } else if preferredType.conforms(to: .image) {
-                showShareFeedback("Copied image to clipboard")
-            } else if preferredType.conforms(to: .movie) || preferredType.conforms(to: .audiovisualContent) {
-                showShareFeedback("Copied video to clipboard")
-            } else {
-                showShareFeedback("Copied media to clipboard")
-            }
-            return
-        }
-
-        if item.mediaKind == .image,
-           let fileData,
-           let image = UIImage(data: fileData) {
-            pasteboard.image = image
-            showShareFeedback("Copied image to clipboard")
-            return
-        }
-
-        if let provider = NSItemProvider(contentsOf: url) {
-            pasteboard.itemProviders = [provider]
-            showShareFeedback("Copied media to clipboard")
-            return
-        }
-
-        showShareFeedback("Unable to copy this media")
-    }
-
-    private func preferredMediaUTType(for url: URL) -> UTType? {
-        if item.mimeType.isEmpty == false,
-           let mimeType = UTType(mimeType: item.mimeType) {
-            return mimeType
-        }
-
-        if let typeFromExtension = UTType(filenameExtension: url.pathExtension) {
-            return typeFromExtension
-        }
-
-        return item.mediaKind == .video ? .mpeg4Movie : .image
     }
 
     private var primaryActionBackground: Color {

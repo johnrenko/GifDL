@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import hmac
 import json
 import mimetypes
 import os
+import socket
+import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import error as urlerror
@@ -10,6 +13,10 @@ from urllib.parse import parse_qs, quote, urljoin, urlparse
 
 
 SUPPORTED_EXTENSIONS = {".gif", ".jpg", ".jpeg", ".mp4", ".mov", ".m4v", ".png", ".webm"}
+MAX_REQUEST_BYTES = int(os.environ.get("MEMEDROP_MAX_REQUEST_BYTES", "8192"))
+REQUEST_SLOTS = threading.BoundedSemaphore(
+    max(1, int(os.environ.get("MEMEDROP_MAX_CONCURRENT_REQUESTS", "2")))
+)
 
 
 def json_response(
@@ -40,6 +47,36 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 def cobalt_api_url() -> str:
     return os.environ.get("MEMEDROP_COBALT_API_URL", "http://127.0.0.1:9000/").strip()
+
+
+def fetch_port() -> int:
+    return int(os.environ.get("MEMEDROP_FETCH_PORT") or os.environ.get("PORT", "8080"))
+
+
+def request_is_authorized(authorization: str | None) -> bool:
+    expected = os.environ.get("MEMEDROP_API_KEY", "").strip()
+    if not expected:
+        return True
+
+    scheme, separator, provided = (authorization or "").partition(" ")
+    return (
+        separator == " "
+        and scheme.lower() == "bearer"
+        and hmac.compare_digest(provided.strip(), expected)
+    )
+
+
+def cobalt_is_reachable() -> bool:
+    parsed = urlparse(cobalt_api_url())
+    if not parsed.hostname:
+        return False
+
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        with socket.create_connection((parsed.hostname, port), timeout=1):
+            return True
+    except OSError:
+        return False
 
 
 def cobalt_public_url() -> str:
@@ -240,7 +277,24 @@ class Handler(BaseHTTPRequestHandler):
             self.respond({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        if not self.authorize():
+            return
+
+        if not REQUEST_SLOTS.acquire(blocking=False):
+            self.respond({"error": "Service busy"}, status=HTTPStatus.TOO_MANY_REQUESTS)
+            return
+
+        try:
+            self.resolve_media()
+        finally:
+            REQUEST_SLOTS.release()
+
+    def resolve_media(self):
         length = int(self.headers.get("Content-Length", "0"))
+        if length > MAX_REQUEST_BYTES:
+            self.respond({"error": "Request body too large"}, status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
+
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
@@ -274,7 +328,15 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if self.path.startswith("/proxy"):
-            self.proxy_media()
+            if not self.authorize():
+                return
+            if not REQUEST_SLOTS.acquire(blocking=False):
+                self.respond({"error": "Service busy"}, status=HTTPStatus.TOO_MANY_REQUESTS)
+                return
+            try:
+                self.proxy_media()
+            finally:
+                REQUEST_SLOTS.release()
             return
 
         if self.path.startswith("/jobs/"):
@@ -289,13 +351,26 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/health":
-            self.respond({"status": "ok"})
+            if cobalt_is_reachable():
+                self.respond({"status": "ok"})
+            else:
+                self.respond({"status": "starting"}, status=HTTPStatus.SERVICE_UNAVAILABLE)
             return
 
         self.respond({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
 
     def log_message(self, format, *args):
         return
+
+    def authorize(self) -> bool:
+        if request_is_authorized(self.headers.get("Authorization")):
+            return True
+        self.respond(
+            {"error": "Unauthorized"},
+            status=HTTPStatus.UNAUTHORIZED,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        return False
 
     def public_base_url(self) -> str:
         host = self.headers.get("Host")
@@ -344,18 +419,20 @@ class Handler(BaseHTTPRequestHandler):
         except urlerror.URLError as exc:
             self.respond({"error": f"Unable to reach cobalt proxy target: {exc.reason}"}, status=HTTPStatus.BAD_GATEWAY)
 
-    def respond(self, payload, status=HTTPStatus.OK):
+    def respond(self, payload, status=HTTPStatus.OK, headers=None):
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(data)
 
 
 if __name__ == "__main__":
     host = os.environ.get("MEMEDROP_FETCH_HOST", "0.0.0.0")
-    port = int(os.environ.get("MEMEDROP_FETCH_PORT", "8080"))
+    port = fetch_port()
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"MemeDrop fetch service listening on http://{host}:{port}")
     print(f"Proxying supported links to cobalt at {urljoin(cobalt_api_url(), '/')}")

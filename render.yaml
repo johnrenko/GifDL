@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: memedrop-fetch
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.render
+    healthCheckPath: /health
+    envVars:
+      - key: MEMEDROP_API_KEY
+        generateValue: true
+      - key: MEMEDROP_COBALT_TIMEOUT
+        value: "60"
+      - key: RATELIMIT_WINDOW
+        value: "60"
+      - key: RATELIMIT_MAX
+        value: "20"
+      - key: TUNNEL_RATELIMIT_WINDOW
+        value: "60"
+      - key: TUNNEL_RATELIMIT_MAX
+        value: "40"

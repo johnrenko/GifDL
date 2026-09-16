@@ -66,6 +66,32 @@ final class MemeDropTests: XCTestCase {
         XCTAssertEqual(decoded.filename, "file.gif")
     }
 
+    func testFetchServiceRequestUsesBearerAPIKey() {
+        let request = FetchServiceRequestFactory.authorizedRequest(
+            url: URL(string: "https://memedrop-fetch.onrender.com/resolve")!,
+            apiKey: "test-secret"
+        )
+
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-secret")
+    }
+
+    func testDownloadRequestOnlyAuthenticatesRenderProxy() {
+        let serviceURL = URL(string: "https://memedrop-fetch.onrender.com")!
+        let proxyRequest = FetchServiceRequestFactory.downloadRequest(
+            url: URL(string: "https://memedrop-fetch.onrender.com/proxy?url=asset")!,
+            serviceBaseURL: serviceURL,
+            apiKey: "test-secret"
+        )
+        let externalRequest = FetchServiceRequestFactory.downloadRequest(
+            url: URL(string: "https://cdn.example.com/asset.mp4")!,
+            serviceBaseURL: serviceURL,
+            apiKey: "test-secret"
+        )
+
+        XCTAssertEqual(proxyRequest.value(forHTTPHeaderField: "Authorization"), "Bearer test-secret")
+        XCTAssertNil(externalRequest.value(forHTTPHeaderField: "Authorization"))
+    }
+
     func testLibraryStoreRoundTripsItemsFromDisk() throws {
         let store = try LibraryStore(configuration: .default, fileManager: .default)
         let item = ImportedMedia(

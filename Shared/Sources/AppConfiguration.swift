@@ -8,7 +8,7 @@ struct AppConfiguration {
 
     static let `default` = AppConfiguration(
         appGroupID: "group.dev.jd.memedrop",
-        fetchServiceBaseURL: URL(string: ProcessInfo.processInfo.environment["MEMEDROP_FETCH_BASE_URL"] ?? "https://memedrop-fetch.onrender.com")!
+        fetchServiceBaseURL: URL(string: ProcessInfo.processInfo.environment["MEMEDROP_FETCH_BASE_URL"] ?? "https://homeserver.tail4fc390.ts.net")!
     )
 
     static var fetchServiceAPIKey: String? {

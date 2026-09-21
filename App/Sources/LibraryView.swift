@@ -239,7 +239,7 @@ private struct FetchServiceSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Render Service") {
+                Section("Fetch Service") {
                     LabeledContent("URL") {
                         Text(AppConfiguration.default.fetchServiceBaseURL.host ?? "Unavailable")
                             .foregroundStyle(.secondary)
@@ -252,7 +252,7 @@ private struct FetchServiceSettingsView: View {
                 }
 
                 Section {
-                    SecureField("Paste the Render API key", text: $apiKey)
+                    SecureField("Paste the service API key", text: $apiKey)
                         .textContentType(.password)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()

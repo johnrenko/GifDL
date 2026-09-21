@@ -8,3 +8,6 @@ Tests
 scripts
 project.yml
 docker-compose.yml
+
+.env.home
+.env.production

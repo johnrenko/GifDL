@@ -30,7 +30,7 @@ docker run --rm -p 9000:9000 -e API_URL=http://127.0.0.1:9000/ ghcr.io/imputnet/
 python3 Backend/server.py
 ```
 
-By default the backend listens on all interfaces at port `8080`, expects cobalt at `http://127.0.0.1:9000/`, and the iOS app defaults to `http://192.168.1.97:8080` for device testing on your local network.
+By default the backend listens on all interfaces at port `8080`, expects cobalt at `http://127.0.0.1:9000/`, and the iOS app defaults to the private home server at `https://homeserver.tail4fc390.ts.net`. For local development, override `MEMEDROP_FETCH_BASE_URL`.
 
 The backend still resolves direct media URLs immediately, but non-direct platform links are now sent to a self-hosted cobalt instance. Useful environment variables:
 
@@ -43,6 +43,55 @@ MEMEDROP_COBALT_ALWAYS_PROXY=false
 ```
 
 The backend proxies cobalt tunnel downloads back through itself, so a phone talking to `MEMEDROP_FETCH_BASE_URL` does not need separate reachability to the cobalt port. The current app model is still single-item per shared URL, so when cobalt returns a `picker` response for multi-item posts the backend imports the first asset. cobalt `local-processing` responses are surfaced as failed imports until the app gains a local remux/transcode path.
+
+## Home server deployment (Tailscale)
+
+The app now uses `https://homeserver.tail4fc390.ts.net` by default. The iPhone
+must be connected to the same Tailscale network. There is no public inbound
+port or router forwarding to configure.
+
+On `homeserver`, the checkout is `/home/john/services/GifDL`. The stack uses
+`compose.home.yml`, with the bridge bound only to `127.0.0.1:8080` and cobalt
+reachable only on the Docker network. Both containers restart automatically.
+
+For a fresh installation:
+
+```bash
+cp .env.home.example .env.home
+chmod 600 .env.home
+# Generate a key and set MEMEDROP_API_KEY in .env.home:
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
+docker compose --env-file .env.home -f compose.home.yml up -d --build --wait
+sudo tailscale serve --bg --yes http://127.0.0.1:8080
+```
+
+If Tailscale provides an activation link, enable HTTPS/Serve and rerun the
+command. Serve runs in the background and persists across reboots. Docker
+and tailscaled must be enabled at boot.
+
+Validate and maintain the deployment:
+
+```bash
+curl --fail https://homeserver.tail4fc390.ts.net/health
+docker compose --env-file .env.home -f compose.home.yml ps
+docker compose --env-file .env.home -f compose.home.yml logs --tail=100
+# After updating this checkout:
+docker compose --env-file .env.home -f compose.home.yml up -d --build --wait
+```
+
+The health endpoint checks the bridge's connection to cobalt. `/resolve` and
+`/proxy` require the bearer key from `.env.home`; that file is private and
+ignored by Git and Docker build contexts. Copy its `MEMEDROP_API_KEY` value
+into the app's **Fetch Service** settings. Do not reuse the Render key unless
+you explicitly configure the same value on this server.
+
+Rebuild and install the app and share extension from this checkout on a Mac.
+The already installed app still points to Render: the URL is compiled into
+both targets. Test an import and a download from the iPhone with Tailscale
+connected before suspending the old Render service in the Render dashboard.
+Media remains in the app's local library; the backend has no persistent data
+to migrate. Render configuration is retained for rollback. To roll back,
+rebuild with the old URL and restore the Render API key in the app.
 
 ## Internet deployment
 
@@ -96,6 +145,6 @@ If you decide to expose cobalt separately later, set `MEMEDROP_COBALT_PUBLIC_URL
 
 The project uses the App Group `group.dev.jd.memedrop` and default bundle IDs under `dev.jd.*`. For device installs or a fully working signed simulator build, update the signing team in `project.yml` or in Xcode after generation.
 
-If your Mac's LAN IP changes, either update `Shared/Sources/AppConfiguration.swift` or override it at launch with `MEMEDROP_FETCH_BASE_URL`.
+To use a different fetch server, update `Shared/Sources/AppConfiguration.swift` or override it at launch with `MEMEDROP_FETCH_BASE_URL`.
 
 If a real-device share seems to succeed but nothing appears in the app, the most likely cause is a broken App Group entitlement. The app now surfaces that condition explicitly; in Xcode, verify that both `MemeDrop` and `MemeDropShareExtension` are signed with the same team and both include the exact same App Group.
